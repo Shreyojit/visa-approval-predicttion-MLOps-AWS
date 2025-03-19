@@ -22,10 +22,15 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Debug ECR Variables
+        run: |
+          echo "Registry: ${{ steps.ecr-login.outputs.registry }}"
+          echo "ECR_REPO: ${{ vars.ECR_REPO }}"
+
       - name: Build and Push
         run: |
-          docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest .
-          docker push ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest
+          docker build -t "${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest" .
+          docker push "${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest"
 
   deploy:
     needs: build-push
@@ -41,6 +46,9 @@ jobs:
       - name: Get ECR Registry
         id: deploy-ecr
         uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Debug ECR Registry
+        run: echo "Deploy Registry: ${{ steps.deploy-ecr.outputs.registry }}"
 
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
