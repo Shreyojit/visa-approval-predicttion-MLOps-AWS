@@ -22,11 +22,6 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Debug Variables
-        run: |
-          echo "ECR Registry: ${{ steps.ecr-login.outputs.registry }}"
-          echo "ECR Repo: ${{ vars.ECR_REPO }}"
-
       - name: Build and Push
         run: |
           docker build -t "${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest" .
@@ -47,8 +42,6 @@ jobs:
         id: deploy-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      
-
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
         with:
@@ -56,22 +49,27 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 120s
+          script_stop: true
+          debug: true
           script: |
-            # Debug: Verify SSH key
-            echo "-----BEGIN RSA PRIVATE KEY-----"
-            echo "${{ secrets.SSH_PRIVATE_KEY }}"
-            echo "-----END RSA PRIVATE KEY-----"
+            # Install AWS CLI
+            sudo apt-get update -y
+            sudo apt-get install -y awscli
 
-            # Debug: Test SSH connectivity
-            echo "Testing SSH connection..."
-            ssh -o StrictHostKeyChecking=no -i "${{ secrets.SSH_PRIVATE_KEY }}" ubuntu@${{ vars.EC2_IP }} "echo 'SSH successful!'"
+            # Configure AWS credentials
+            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            export AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}
 
-            # Deploy Process
+            # ECR Login
+            aws ecr get-login-password | \
+              docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
+
+            # Container management
             docker stop visa-pred || true
             docker rm visa-pred || true
-            aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
-              docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
-            docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ vars.ECR_REPO }}:latest
+
+            # Run new container
             docker run -d \
               --name visa-pred \
               --restart unless-stopped \
