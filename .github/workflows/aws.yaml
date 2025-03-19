@@ -7,60 +7,79 @@ on:
 jobs:
   build-push:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Configure AWS
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-    - name: Login to ECR
-      id: ecr-login
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build and Push
-      run: |
-        docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPO }}:latest .
-        docker push ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
+      - name: Build and Push
+        run: |
+          docker build -t ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPO }}:latest .
+          docker push ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
 
   deploy:
     needs: build-push
     runs-on: ubuntu-latest
     steps:
-    - name: Configure AWS for Deploy
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-    - name: Get ECR Registry
-      id: deploy-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Get ECR Registry
+        id: deploy-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: SSH Deploy
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_IP }}
-        username: ubuntu
-        key: |
-          ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          docker stop visa-pred || true
-          docker rm visa-pred || true
-          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | docker login \
-            --username AWS \
-            --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
-          docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
-          docker run -d --name visa-pred \
-            -e MONGODB_URL="${{ secrets.MONGODB_URL }}" \
-            -e MONGODB_URL_KEY="${{ secrets.MONGODB_URL_KEY }}" \
-            -e CAPSTONE_TEST="${{ secrets.CAPSTONE_TEST }}" \
-            -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
-            -p 8080:8080 \
-            ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
+      - name: Pre-Deploy Connectivity Check
+        run: |
+          echo "Testing connection to ${{ secrets.EC2_IP }}:22"
+          nc -zv ${{ secrets.EC2_IP }} 22 -w 5
+
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ubuntu
+          key: |
+            ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 120s
+          script: |
+            echo "---- Starting Deployment ----"
+            echo "Current running containers:"
+            docker ps -a
+            
+            echo "Stopping existing container..."
+            docker stop visa-pred || true
+            docker rm visa-pred || true
+            
+            echo "Pulling latest image..."
+            aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
+              docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
+            docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
+            
+            echo "Starting new container..."
+            docker run -d \
+              --name visa-pred \
+              --restart unless-stopped \
+              -e MONGODB_URL="${{ secrets.MONGODB_URL }}" \
+              -e MONGODB_URL_KEY="${{ secrets.MONGODB_URL_KEY }}" \
+              -e CAPSTONE_TEST="${{ secrets.CAPSTONE_TEST }}" \
+              -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
+              -p 8080:8080 \
+              ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
+            
+            echo "---- Deployment Complete ----"
+            docker ps
+            curl -I localhost:8080
