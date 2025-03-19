@@ -22,11 +22,6 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Debug ECR Variables
-        run: |
-          echo "Registry: ${{ steps.ecr-login.outputs.registry }}"
-          echo "ECR_REPO: ${{ vars.ECR_REPO }}"
-
       - name: Build and Push
         run: |
           docker build -t "${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPO }}:latest" .
@@ -47,9 +42,6 @@ jobs:
         id: deploy-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Debug ECR Registry
-        run: echo "Deploy Registry: ${{ steps.deploy-ecr.outputs.registry }}"
-
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
         with:
@@ -61,7 +53,7 @@ jobs:
             docker stop visa-pred || true
             docker rm visa-pred || true
             aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
-              docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
+            docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
             docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ vars.ECR_REPO }}:latest
             docker run -d \
               --name visa-pred \
