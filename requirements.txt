@@ -5,7 +5,7 @@ matplotlib
 plotly
 seaborn
 scipy
-scikit-learn
+scikit-learn==1.6.1
 imblearn
 xgboost
 catboost
@@ -25,4 +25,3 @@ python-multipart
 python-dotenv
 mlflow
 dagshub
--e .

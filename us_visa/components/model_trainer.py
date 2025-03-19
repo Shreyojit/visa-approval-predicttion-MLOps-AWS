@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 import sys
 import numpy as np
 import mlflow
@@ -21,7 +25,7 @@ if not dagshub_token:
 os.environ["MLFLOW_TRACKING_USERNAME"] = dagshub_token
 os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-MLFLOW_TRACKING_URI = "https://dagshub.com/vikashdas770/YT-Capstone-Project.mlflow"
+MLFLOW_TRACKING_URI = "https://dagshub.com/shreyojitdas95/visa-approval-predicttion-MLOps-AWS.mlflow"
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 class ModelTrainer:
@@ -43,12 +47,19 @@ class ModelTrainer:
 
             y_pred = model_obj.predict(x_test)
             metrics = {
-                "accuracy": accuracy_score(y_test, y_pred),
+                "accuracy_score": accuracy_score(y_test, y_pred),
                 "f1_score": f1_score(y_test, y_pred),
-                "precision": precision_score(y_test, y_pred),
+                "precision_score": precision_score(y_test, y_pred),  # Corrected to 'precision_score'
                 "recall": recall_score(y_test, y_pred),
             }
-            metric_artifact = ClassificationMetricArtifact(**metrics)
+
+            metric_artifact = ClassificationMetricArtifact(
+            accuracy_score=metrics["accuracy_score"],
+            f1_score=metrics["f1_score"],
+            precision_score=metrics["precision_score"],  # Use 'precision_score' instead of 'precision'
+            recall_score=metrics["recall"],
+            )
+
 
             return best_model_detail, metric_artifact
         except Exception as e:
@@ -77,7 +88,13 @@ class ModelTrainer:
                     "expected_accuracy": self.model_trainer_config.expected_accuracy,
                     "best_model": str(type(best_model_detail.best_model).__name__),
                 })
-                mlflow.log_metrics(metric_artifact.__dict__)
+                mlflow.log_metrics({
+                "accuracy": metric_artifact.accuracy_score,
+                "f1_score": metric_artifact.f1_score,
+                "precision": metric_artifact.precision_score,  # Corrected to 'precision_score'
+                "recall": metric_artifact.recall_score
+                })
+
                 mlflow.sklearn.log_model(best_model_detail.best_model, "model")
 
                 model_trainer_artifact = ModelTrainerArtifact(

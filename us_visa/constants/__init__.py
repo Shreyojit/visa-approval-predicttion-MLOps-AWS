@@ -21,9 +21,10 @@ TRAIN_FILE_NAME: str = "train.csv"
 TEST_FILE_NAME: str = "test.csv"
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Go up 3 levels
-SCHEMA_FILE_PATH = os.path.join(BASE_DIR, "config", "schema.yaml")
+# BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Go up 3 levels
+# SCHEMA_FILE_PATH = os.path.join(BASE_DIR, "config", "schema.yaml")
 
+SCHEMA_FILE_PATH = os.path.join("config", "schema.yaml")
 
 
 AWS_ACCESS_KEY_ID_ENV_KEY = "AWS_ACCESS_KEY_ID"
@@ -68,9 +69,11 @@ MODEL_TRAINER_MODEL_CONFIG_FILE_PATH: str = os.path.join("config", "model.yaml")
 
 
 MODEL_EVALUATION_CHANGED_THRESHOLD_SCORE: float = 0.02
-MODEL_BUCKET_NAME = "usvisa-model-mlopsproj"
+MODEL_BUCKET_NAME = "usvisa-pred-model-mlopsproj"
 MODEL_PUSHER_S3_KEY = "model-registry"
 
 
 APP_HOST = "0.0.0.0"
 APP_PORT = 8080
+
+
