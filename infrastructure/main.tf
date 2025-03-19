@@ -1,42 +1,42 @@
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+provider "aws" {
+  region = var.region
 }
 
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id
+# Create IAM user for GitHub Actions
+resource "aws_iam_user" "github_user" {
+  name = "github-actions-user"
 }
 
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = "${var.aws_region}a"
+resource "aws_iam_access_key" "github_key" {
+  user = aws_iam_user.github_user.name
 }
 
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
+# Attach ECR permissions
+resource "aws_iam_user_policy_attachment" "ecr_access" {
+  user       = aws_iam_user.github_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
 }
 
-resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.public.id
-  route_table_id = aws_route_table.public.id
+# Create ECR Repository
+resource "aws_ecr_repository" "app_repo" {
+  name = var.ecr_repo_name
 }
 
+# Create EC2 Security Group
 resource "aws_security_group" "app_sg" {
-  name        = "us-visa-sg"
-  description = "Security group for US Visa application"
-  vpc_id      = aws_vpc.main.id
+  name        = "app-security-group"
+  description = "Allow web and SSH access"
 
   ingress {
-    from_port   = var.app_port
-    to_port     = var.app_port
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -49,62 +49,45 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-resource "aws_iam_role" "ec2_role" {
-  name = "us-visa-ec2-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-    }]
-  })
+# Create SSH Key
+resource "tls_private_key" "ssh_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-resource "aws_iam_role_policy_attachment" "s3_access" {
-  role       = aws_iam_role.ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+resource "aws_key_pair" "deploy_key" {
+  key_name   = "ec2-deploy-key"
+  public_key = tls_private_key.ssh_key.public_key_openssh
 }
 
-resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "us-visa-ec2-profile"
-  role = aws_iam_role.ec2_role.name
-}
+# Create EC2 Instance
+data "aws_ami" "ubuntu" {
+  most_recent = true
 
-resource "aws_ecr_repository" "app_repo" {
-  name = var.ecr_repo_name
-}
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
 
-resource "aws_s3_bucket" "model_bucket" {
-  bucket = var.s3_bucket_name
+  owners = ["099720109477"] # Canonical
 }
 
 resource "aws_instance" "app_server" {
-  ami           = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS
-  instance_type = var.ec2_instance_type
-  subnet_id     = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
+  ami             = data.aws_ami.ubuntu.id
+  instance_type   = "t2.medium"
+  key_name        = aws_key_pair.deploy_key.key_name
+  security_groups = [aws_security_group.app_sg.name]
 
   user_data = <<-EOF
               #!/bin/bash
               apt-get update
-              apt-get install -y docker.io awscli
-              systemctl enable docker
+              apt-get install -y docker.io
               systemctl start docker
-              $(aws ecr get-login --no-include-email --region ${var.aws_region})
-              docker pull ${aws_ecr_repository.app_repo.repository_url}:latest
-              docker run -d -p ${var.app_port}:${var.app_port} \
-                -e AWS_ACCESS_KEY_ID=${var.aws_access_key} \
-                -e AWS_SECRET_ACCESS_KEY=${var.aws_secret_key} \
-                -e MONGODB_URL=${var.mongodb_url} \
-                ${aws_ecr_repository.app_repo.repository_url}:latest
+              systemctl enable docker
+              usermod -aG docker ubuntu
               EOF
 
   tags = {
-    Name = "US-Visa-Classifier"
+    Name = "VisaPredictionServer"
   }
 }
