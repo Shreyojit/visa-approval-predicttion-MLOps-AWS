@@ -49,8 +49,6 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 120s
-          script_stop: true
-          debug: true
           script: |
             # Install AWS CLI
             sudo apt-get update -y
@@ -72,11 +70,11 @@ jobs:
             docker run -d \
               --name visa-pred \
               --restart unless-stopped \
-              -e MONGODB_URL="$MONGODB_URL" \
-              -e MONGODB_URL_KEY="$MONGODB_URL_KEY" \
-              -e CAPSTONE_TEST="$CAPSTONE_TEST" \
+              -e MONGODB_URL="${{ secrets.MONGODB_URL }}" \
+              -e MONGODB_URL_KEY="${{ secrets.MONGODB_URL_KEY }}" \
+              -e CAPSTONE_TEST="${{ secrets.CAPSTONE_TEST }}" \
               -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
               -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-              -e AWS_DEFAULT_REGION="${{ secrets.AWS_REGION }}" \
+              -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
               -p 8080:8080 \
-              ${{ steps.deploy-ecr.outputs.registry }}/${{ env.ECR_REPO }}:latest
+              ${{ steps.deploy-ecr.outputs.registry }}/${{ vars.ECR_REPO }}:latest
