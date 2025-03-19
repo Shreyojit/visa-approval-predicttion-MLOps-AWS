@@ -47,6 +47,8 @@ jobs:
         id: deploy-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      
+
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
         with:
@@ -55,10 +57,20 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 120s
           script: |
+            # Debug: Verify SSH key
+            echo "-----BEGIN RSA PRIVATE KEY-----"
+            echo "${{ secrets.SSH_PRIVATE_KEY }}"
+            echo "-----END RSA PRIVATE KEY-----"
+
+            # Debug: Test SSH connectivity
+            echo "Testing SSH connection..."
+            ssh -o StrictHostKeyChecking=no -i "${{ secrets.SSH_PRIVATE_KEY }}" ubuntu@${{ vars.EC2_IP }} "echo 'SSH successful!'"
+
+            # Deploy Process
             docker stop visa-pred || true
             docker rm visa-pred || true
             aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
-            docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
+              docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
             docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ vars.ECR_REPO }}:latest
             docker run -d \
               --name visa-pred \
