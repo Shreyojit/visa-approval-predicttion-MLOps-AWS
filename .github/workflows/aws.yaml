@@ -48,7 +48,8 @@ jobs:
       with:
         host: ${{ secrets.EC2_IP }}
         username: ubuntu
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: |
+          ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           docker stop visa-pred || true
           docker rm visa-pred || true

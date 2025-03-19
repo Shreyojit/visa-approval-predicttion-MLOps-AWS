@@ -154,3 +154,4 @@ docker-compose.override.yml
 
 # Additional Terraform outputs
 terraform_outs.txt
+infrastructure/key.pem
