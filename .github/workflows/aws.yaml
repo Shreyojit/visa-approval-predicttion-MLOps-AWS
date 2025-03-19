@@ -42,10 +42,16 @@ jobs:
         id: deploy-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Pre-Deploy Connectivity Check
-        run: |
-          echo "Testing connection to ${{ secrets.EC2_IP }}:22"
-          nc -zv ${{ secrets.EC2_IP }} 22 -w 5
+      - name: SSH Connection Test
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ubuntu
+          key: |
+            ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 120s
+          script: |
+            echo "SSH connection successful!"
 
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
@@ -56,20 +62,11 @@ jobs:
             ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 120s
           script: |
-            echo "---- Starting Deployment ----"
-            echo "Current running containers:"
-            docker ps -a
-            
-            echo "Stopping existing container..."
             docker stop visa-pred || true
             docker rm visa-pred || true
-            
-            echo "Pulling latest image..."
             aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
               docker login --username AWS --password-stdin ${{ steps.deploy-ecr.outputs.registry }}
             docker pull ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
-            
-            echo "Starting new container..."
             docker run -d \
               --name visa-pred \
               --restart unless-stopped \
@@ -79,7 +76,3 @@ jobs:
               -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" \
               -p 8080:8080 \
               ${{ steps.deploy-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest
-            
-            echo "---- Deployment Complete ----"
-            docker ps
-            curl -I localhost:8080
