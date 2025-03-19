@@ -1,0 +1,53 @@
+curl -X POST http://localhost:8000/ \
+  -d "continent=Asia" \
+  -d "education_of_employee=Bachelor's" \
+  -d "has_job_experience=N" \
+  -d "requires_job_training=Y" \
+  -d "no_of_employees=44444" \
+  -d "company_age=2008" \
+  -d "region_of_employment=West" \
+  -d "prevailing_wage=122996.86" \
+  -d "unit_of_wage=Year" \
+  -d "full_time_position=Y"
+
+
+
+
+  curl -X GET http://localhost:8080/train
+
+
+  curl -X POST http://localhost:8080/ \
+  -d "continent=Africa" \
+  -d "education_of_employee=Master's" \
+  -d "has_job_experience=Y" \
+  -d "requires_job_training=N" \
+  -d "no_of_employees=1082" \
+  -d "company_age=2005" \
+  -d "region_of_employment=South" \
+  -d "prevailing_wage=149907.39" \
+  -d "unit_of_wage=Year" \
+  -d "full_time_position=Y"
+
+
+curl -X POST http://localhost:8080/ \
+  -d "continent=North America" \
+  -d "education_of_employee=Bachelor's" \
+  -d "has_job_experience=Y" \
+  -d "requires_job_training=N" \
+  -d "no_of_employees=3035" \
+  -d "company_age=1924" \
+  -d "region_of_employment=West" \
+  -d "prevailing_wage=418.23" \
+  -d "unit_of_wage=Hour" \
+  -d "full_time_position=Y"
+
+
+
+docker build -t visa-pred .
+docker run -d --env-file .env -p 8080:8080 visa-pred
+docker ps  # List running containers
+docker stop <container_id>  # Stop the specific container
+
+
+
+docker run --env-file .env -p 8080:8080 --name optimized-visa-app optimized-visa-app
