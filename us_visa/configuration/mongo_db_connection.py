@@ -4,20 +4,14 @@ import certifi
 
 from us_visa.exception import USvisaException
 from us_visa.logger import logging
-from us_visa.constants import DATABASE_NAME, MONGODB_URL_KEY
-
-
-import os
-print(f"MONGODB_URL: {os.environ.get('MONGODB_URL')}")
-
-
+from us_visa.constants import DATABASE_NAME
 
 class MongoDBClient:
     """
     A class to manage MongoDB connection.
     Establishes a connection to MongoDB and provides access to the specified database.
     """
-    
+
     client = None  # Class-level client to ensure a single connection instance
 
     def __init__(self, database_name: str = DATABASE_NAME) -> None:
@@ -32,10 +26,8 @@ class MongoDBClient:
         """
         try:
             if MongoDBClient.client is None:
-                mongo_db_url = os.environ.get("MONGODB_URL")
-
-                if not mongo_db_url:
-                    raise ValueError(f"Environment variable '{MONGODB_URL_KEY}' is not set.")
+                # Hardcoded MongoDB connection string
+                mongo_db_url = "mongodb+srv://shreyojitdas95:kingof95@cluster0.s72yp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
                 # Establishing connection with SSL certificate verification
                 MongoDBClient.client = pymongo.MongoClient(mongo_db_url, tlsCAFile=certifi.where())
