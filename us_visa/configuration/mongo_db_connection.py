@@ -6,7 +6,11 @@ from us_visa.exception import USvisaException
 from us_visa.logger import logging
 from us_visa.constants import DATABASE_NAME, MONGODB_URL_KEY
 
+
 import os
+print(f"MONGODB_URL: {os.environ.get('MONGODB_URL')}")
+
+
 
 class MongoDBClient:
     """
@@ -28,7 +32,8 @@ class MongoDBClient:
         """
         try:
             if MongoDBClient.client is None:
-                mongo_db_url = os.environ.get(MONGODB_URL_KEY)
+                mongo_db_url = os.environ.get("MONGODB_URL")
+
                 if not mongo_db_url:
                     raise ValueError(f"Environment variable '{MONGODB_URL_KEY}' is not set.")
 
