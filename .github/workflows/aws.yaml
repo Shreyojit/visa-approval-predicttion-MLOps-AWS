@@ -44,6 +44,8 @@ jobs:
 
       - name: SSH Deploy
         uses: appleboy/ssh-action@master
+        env:
+          MONGODB_URL: ${{ secrets.MONGODB_URL }}
         with:
           host: ${{ vars.EC2_IP }}
           username: ubuntu

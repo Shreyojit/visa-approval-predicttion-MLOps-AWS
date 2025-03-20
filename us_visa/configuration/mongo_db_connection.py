@@ -1,13 +1,12 @@
 import sys
 import pymongo
 import certifi
-from dotenv import dotenv_values  # Use dotenv_values instead of os.getenv
+
 from us_visa.exception import USvisaException
 from us_visa.logger import logging
 from us_visa.constants import DATABASE_NAME, MONGODB_URL_KEY
 
-# Load environment variables from .env file
-env_vars = dotenv_values()
+import os
 
 class MongoDBClient:
     """
@@ -29,7 +28,7 @@ class MongoDBClient:
         """
         try:
             if MongoDBClient.client is None:
-                mongo_db_url = env_vars.get(MONGODB_URL_KEY)
+                mongo_db_url = os.environ.get(MONGODB_URL_KEY)
                 if not mongo_db_url:
                     raise ValueError(f"Environment variable '{MONGODB_URL_KEY}' is not set.")
 
