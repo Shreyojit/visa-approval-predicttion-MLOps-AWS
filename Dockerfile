@@ -1,23 +1,35 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim-buster
+FROM apache/airflow:2.7.3
 
-# Set the working directory in the container
-WORKDIR /app
+USER root
 
-# Copy the current directory contents into the container at /app
-COPY . /app
-
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install system dependencies (if any)
-RUN apt-get update && apt-get install -y \
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Make port 8080 available to the world outside this container
-EXPOSE 8080
+USER airflow
 
-# Run the application using uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
+# Copy requirements.txt and install Python dependencies
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir --user -r /tmp/requirements.txt
+
+# Copy the .env file into the container
+COPY .env /opt/airflow/.env
+
+# Copy the config directory into the container
+COPY config /opt/airflow/config
+
+# Copy the templates directory into the container
+COPY templates /opt/airflow/templates
+
+# Copy the us_visa directory
+COPY us_visa /opt/airflow/us_visa
+
+# Copy the main.py file into the container
+COPY main.py /opt/airflow/main.py  
+
+# Set PYTHONPATH
+ENV PYTHONPATH "${PYTHONPATH}:/opt/airflow"
+

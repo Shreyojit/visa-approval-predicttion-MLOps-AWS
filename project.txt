@@ -189,3 +189,13 @@ aws s3 ls s3://usvisa-pred-model-mlopsproj/ --profile shreyo
 ---
 
 Now your file has been **created, uploaded, edited, and deleted** in S3. Let me know if you need more help! 🚀
+
+
+
+docker-compose run --rm airflow-webserver airflow users create \
+    --username admin \
+    --password admin \
+    --firstname sd \
+    --lastname sd \
+    --role Admin \
+    --email admin@example.com

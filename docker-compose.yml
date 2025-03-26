@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  airflow-webserver:
+    build: .
+    command: webserver
+    restart: on-failure
+    env_file: 
+      - .env  # ✅ Load environment variables from .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: '46BKJoQYlPPOexq0OhGZnuiZJURkMZ5KdK0y5x9OWUs='
+      AIRFLOW__WEBSERVER__SECRET_KEY: '1234'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./artifacts:/opt/airflow/artifacts
+      - ./us_visa:/opt/airflow/us_visa
+      - ./config:/opt/airflow/config  # ✅ Mount config directory
+      - ./templates:/opt/airflow/templates  # ✅ Mount templates directory
+      - ./main.py:/opt/airflow/main.py  # ✅ Include main.py
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  airflow-scheduler:
+    build: .
+    command: scheduler
+    restart: on-failure
+    env_file: 
+      - .env  # ✅ Load environment variables from .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: '46BKJoQYlPPOexq0OhGZnuiZJURkMZ5KdK0y5x9OWUs='
+      AIRFLOW__WEBSERVER__SECRET_KEY: '1234'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - ./artifacts:/opt/airflow/artifacts
+      - ./us_visa:/opt/airflow/us_visa
+      - ./config:/opt/airflow/config  # ✅ Mount config directory
+      - ./templates:/opt/airflow/templates  # ✅ Mount templates directory
+      - ./main.py:/opt/airflow/main.py  # ✅ Include main.py
+    depends_on:
+      - postgres
+      - airflow-webserver
+
+volumes:
+  postgres-db-volume:

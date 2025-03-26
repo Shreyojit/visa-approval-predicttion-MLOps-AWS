@@ -1,0 +1,211 @@
+The error logs and the `docker-compose ps` output indicate that your **Airflow webserver** and **scheduler** containers are stuck in a **restarting loop**. This is likely due to the fact that the Airflow database has not been initialized, and the containers are failing to start because of this.
+
+Here’s how we can resolve this issue step by step:
+
+---
+
+### **1. Stop All Containers**
+First, stop all running containers to ensure a clean state:
+```bash
+docker-compose down
+```
+
+This will stop and remove all containers, networks, and volumes (except named volumes like `postgres-db-volume`).
+
+---
+
+### **2. Start Only the PostgreSQL Container**
+Start only the PostgreSQL container so that the database is ready before initializing Airflow:
+```bash
+docker-compose up -d postgres
+```
+
+Verify that the PostgreSQL container is running:
+```bash
+docker ps
+```
+
+You should see `mlops-us-visa-approval-postgres-1` listed as "Up".
+
+---
+
+### **3. Initialize the Airflow Database**
+Now, initialize the Airflow database using the `airflow db init` command. Follow these steps:
+
+1. **Access the Airflow Webserver Container**:
+   ```bash
+   docker-compose run airflow-webserver bash
+   ```
+
+   This starts a one-off container for the `airflow-webserver` service and opens a shell inside it.
+
+2. **Run the Database Initialization Command**:
+   Inside the container, execute:
+   ```bash
+   airflow db init
+   ```
+
+   This initializes the Airflow metadata database in PostgreSQL.
+
+3. **Create an Admin User**:
+   After initializing the database, create an admin user to log in to the Airflow web interface:
+   ```bash
+   airflow users create \
+       --username admin \
+       --firstname Admin \
+       --lastname User \
+       --role Admin \
+       --email admin@example.com \
+       --password admin
+   ```
+
+4. **Exit the Container**:
+   Exit the shell:
+   ```bash
+   exit
+   ```
+
+---
+
+### **4. Update Deprecated Configuration**
+The deprecation warnings about `sql_alchemy_conn` indicate that your Airflow configuration is outdated. To fix this:
+
+1. **Locate the `airflow.cfg` File**:
+   The `airflow.cfg` file is typically located in `/home/airflow/airflow` inside the container.
+
+2. **Update the Configuration**:
+   Open the `airflow.cfg` file and move the `sql_alchemy_conn` setting from the `[core]` section to the `[database]` section. For example:
+   ```ini
+   [database]
+   sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+   ```
+
+3. **Rebuild the Docker Images**:
+   If you made changes to the `airflow.cfg` file, rebuild the Docker images:
+   ```bash
+   docker-compose build --no-cache
+   ```
+
+---
+
+### **5. Start All Services**
+Once the database is initialized and the configuration is updated, start all services:
+```bash
+docker-compose up -d
+```
+
+Verify that all containers are running:
+```bash
+docker ps
+```
+
+You should see:
+- `mlops-us-visa-approval-postgres-1`
+- `mlops-us-visa-approval-airflow-webserver-1`
+- `mlops-us-visa-approval-airflow-scheduler-1`
+
+---
+
+### **6. Check Logs for Errors**
+Inspect the logs of the `airflow-webserver` and `airflow-scheduler` containers to ensure there are no errors:
+```bash
+docker-compose logs airflow-webserver
+docker-compose logs airflow-scheduler
+```
+
+If there are no errors, proceed to the next step.
+
+---
+
+### **7. Access the Airflow Web Interface**
+Open your browser and navigate to:
+```
+http://localhost:8080
+```
+
+Log in with the credentials you created earlier:
+- Username: `admin`
+- Password: `admin`
+
+---
+
+### **8. Verify DAGs**
+Once logged in, verify that your DAGs are visible and functioning correctly:
+- Navigate to the "DAGs" section in the Airflow web interface.
+- Ensure that your DAGs (e.g., `us_visa_approval`) are listed and active.
+
+If your DAGs are not visible:
+- Check the `./dags` directory on your host machine to ensure your DAG files are present.
+- Verify that the `./dags` directory is correctly mounted into the container at `/opt/airflow/dags`.
+
+---
+
+### **9. Automate Initialization with an Entrypoint Script**
+To avoid manually initializing the database every time, you can use an entrypoint script. Here’s an example:
+
+#### **Create `entrypoint.sh`**
+```bash
+#!/bin/bash
+
+# Wait for the database to be ready
+until airflow db check; do
+  echo "Waiting for database to be ready..."
+  sleep 5
+done
+
+# Initialize the database
+airflow db init
+
+# Create an admin user (if not already created)
+airflow users list | grep admin || airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@example.com \
+    --password admin
+
+# Start the Airflow service
+exec airflow "$@"
+```
+
+#### **Update the Dockerfile**
+Add the script to your `Dockerfile`:
+```dockerfile
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["webserver"]
+```
+
+#### **Rebuild and Restart**
+Rebuild the image and restart the containers:
+```bash
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+---
+
+### **Summary**
+1. Stop all containers and start only the PostgreSQL container.
+2. Initialize the Airflow database using `airflow db init`.
+3. Update the deprecated `sql_alchemy_conn` configuration.
+4. Rebuild the Docker images if necessary.
+5. Start all services and verify the setup.
+
+By following these steps, you should be able to resolve the restarting loop issue and access the Airflow web interface successfully. Let me know if you encounter any further issues!
+
+
+airflow db init
+
+
+airflow users create \
+    --username admin \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@example.com \
+    --password admin
+
