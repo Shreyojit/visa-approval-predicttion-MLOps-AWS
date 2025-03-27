@@ -1,0 +1,15 @@
+# Step 1: Switch to the main branch and update it
+git checkout main
+git pull origin main
+
+# Step 2: Create and switch to the new branch
+git checkout -b airflow
+
+# Step 3: Stage all changes
+git add .
+
+# Step 4: Commit the changes
+git commit -m "Add Airflow configuration and related files"
+
+# Step 5: Push the new branch to GitHub
+git push origin airflow
